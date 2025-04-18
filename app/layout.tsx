@@ -1,10 +1,26 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { initDb } from '@/lib/db-init'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Hackathon Judging',
+  description: 'App for judging hackathon projects',
   generator: 'v0.dev',
+}
+
+// Initialize database on the server
+// This will be executed only once during server startup
+async function initDatabase() {
+  try {
+    await initDb();
+  } catch (error) {
+    console.error('Failed to initialize database:', error);
+  }
+}
+
+// Only run database initialization on the server
+if (typeof window === 'undefined') {
+  initDatabase().catch(console.error);
 }
 
 export default function RootLayout({

@@ -8,7 +8,15 @@ import { Separator } from "@/components/ui/separator"
 import { LogOut } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AuthGuard } from "@/components/auth-guard"
-import { getNextPairForJudge, addComparison, type Project } from "@/lib/data"
+
+export type Project = {
+  id: number;
+  name: string;
+  description: string;
+  teamMembers: string;
+  tableNumber: number;
+  isFinalist: boolean;
+}
 
 export default function JudgeExpo() {
   const [judgeId, setJudgeId] = useState<string | null>(null)
@@ -18,22 +26,48 @@ export default function JudgeExpo() {
   const router = useRouter()
   const { toast } = useToast()
 
-  useEffect(() => {
-    // Get judge info from localStorage
-    const id = localStorage.getItem("judgeId")
-    const name = localStorage.getItem("judgeName")
-
-    if (id) {
-      setJudgeId(id)
-      setJudgeName(name)
-
-      // Get next pair to judge
-      const pair = getNextPairForJudge(id)
-      setProjectPair(pair)
+  const fetchNextPair = async (id: string) => {
+    try {
+      const response = await fetch(`/api/db/get-next-pair?judgeId=${id}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch next pair')
+      }
+      const data = await response.json()
+      setProjectPair(data.pair)
+    } catch (error) {
+      console.error("Error fetching next pair:", error)
+      toast({
+        title: "Error",
+        description: "Failed to load project pairs. Please try again.",
+        variant: "destructive"
+      })
+      setProjectPair(null)
     }
+  }
 
-    setLoading(false)
-  }, [])
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // Get judge info from localStorage
+        const id = localStorage.getItem("judgeId")
+        const name = localStorage.getItem("judgeName")
+
+        if (id) {
+          setJudgeId(id)
+          setJudgeName(name)
+
+          // Get next pair to judge
+          await fetchNextPair(id)
+        }
+      } catch (error) {
+        console.error("Error in initialization:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadData()
+  }, [toast])
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn")
@@ -49,25 +83,44 @@ export default function JudgeExpo() {
     router.push("/")
   }
 
-  const handleSelectWinner = (winnerId: string) => {
+  const handleSelectWinner = async (winnerId: number) => {
     if (!judgeId || !projectPair) return
 
-    // Record the comparison
-    addComparison({
-      judgeId,
-      projectAId: projectPair.projectA.id,
-      projectBId: projectPair.projectB.id,
-      winnerId,
-    })
+    try {
+      // Record the comparison via API
+      const response = await fetch("/api/db/add-comparison", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          judge_id: judgeId,
+          project_a_id: projectPair.projectA.id,
+          project_b_id: projectPair.projectB.id,
+          winner_id: winnerId,
+          timestamp: Date.now()
+        }),
+      })
 
-    toast({
-      title: "Comparison recorded",
-      description: "Your selection has been saved",
-    })
+      if (!response.ok) {
+        throw new Error("Failed to record comparison")
+      }
 
-    // Get next pair
-    const nextPair = getNextPairForJudge(judgeId)
-    setProjectPair(nextPair)
+      toast({
+        title: "Comparison recorded",
+        description: "Your selection has been saved",
+      })
+
+      // Get next pair
+      await fetchNextPair(judgeId)
+    } catch (error) {
+      console.error("Error recording comparison:", error)
+      toast({
+        title: "Error",
+        description: "Failed to record your selection. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
   const checkPhase = () => {

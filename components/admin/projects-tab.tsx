@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -18,71 +18,154 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getProjects, addProject, updateProject, deleteProject, type Project } from "@/lib/data"
+import { getProjects, addProject } from "@/lib/db-client"
+
+// Define the Project type
+export type Project = {
+  id: number;
+  name: string;
+  description: string;
+  teamMembers: string;
+  tableNumber: number;
+  isFinalist: boolean;
+}
 
 export default function ProjectsTab() {
-  const [projects, setProjects] = useState<Project[]>(getProjects())
+  const [projects, setProjects] = useState<Project[]>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [currentProject, setCurrentProject] = useState<Project | null>(null)
+  const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    teamMembers: "",
-    tableNumber: 0,
+    team_members: "",
+    table_number: 0,
   })
   const { toast } = useToast()
 
-  const handleAddProject = () => {
-    const newProject = addProject({
-      name: formData.name,
-      description: formData.description,
-      teamMembers: formData.teamMembers,
-      tableNumber: formData.tableNumber,
-    })
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        setLoading(true)
+        const data = await getProjects()
+        setProjects(data)
+      } catch (error) {
+        console.error('Error loading projects:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load projects. Please try again.",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadProjects()
+  }, [toast])
 
-    setProjects(getProjects())
-    setIsAddDialogOpen(false)
-    resetForm()
+  const handleAddProject = async () => {
+    try {
+      await addProject({
+        name: formData.name,
+        description: formData.description,
+        team_members: formData.team_members,
+        table_number: formData.table_number,
+      })
 
-    toast({
-      title: "Project added",
-      description: `${newProject.name} has been added successfully`,
-    })
+      // Refresh the project list
+      const updatedProjects = await getProjects()
+      setProjects(updatedProjects)
+      setIsAddDialogOpen(false)
+      resetForm()
+
+      toast({
+        title: "Project added",
+        description: `${formData.name} has been added successfully`,
+      })
+    } catch (error) {
+      console.error('Error adding project:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add project. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
-  const handleEditProject = () => {
+  const handleEditProject = async () => {
     if (!currentProject) return
 
-    updateProject(currentProject.id, {
-      name: formData.name,
-      description: formData.description,
-      teamMembers: formData.teamMembers,
-      tableNumber: formData.tableNumber,
-    })
+    try {
+      // Use the API route to update the project
+      await fetch(`/api/db/update-project`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: currentProject.id,
+          name: formData.name,
+          description: formData.description,
+          team_members: formData.team_members,
+          table_number: formData.table_number,
+        }),
+      })
 
-    setProjects(getProjects())
-    setIsEditDialogOpen(false)
-    resetForm()
+      // Refresh the project list
+      const updatedProjects = await getProjects()
+      setProjects(updatedProjects)
+      setIsEditDialogOpen(false)
+      resetForm()
 
-    toast({
-      title: "Project updated",
-      description: `${formData.name} has been updated successfully`,
-    })
+      toast({
+        title: "Project updated",
+        description: `${formData.name} has been updated successfully`,
+      })
+    } catch (error) {
+      console.error('Error updating project:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
-  const handleDeleteProject = () => {
+  const handleDeleteProject = async () => {
     if (!currentProject) return
 
-    deleteProject(currentProject.id)
-    setProjects(getProjects())
-    setIsDeleteDialogOpen(false)
+    try {
+      // Use the API route to delete the project
+      await fetch(`/api/db/delete-project`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: currentProject.id,
+        }),
+      })
 
-    toast({
-      title: "Project deleted",
-      description: `${currentProject.name} has been deleted successfully`,
-    })
+      // Refresh the project list
+      const updatedProjects = await getProjects()
+      setProjects(updatedProjects)
+      setIsDeleteDialogOpen(false)
+
+      toast({
+        title: "Project deleted",
+        description: `${currentProject.name} has been deleted successfully`,
+      })
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive"
+      })
+    }
   }
 
   const openEditDialog = (project: Project) => {
@@ -90,8 +173,8 @@ export default function ProjectsTab() {
     setFormData({
       name: project.name,
       description: project.description,
-      teamMembers: project.teamMembers,
-      tableNumber: project.tableNumber,
+      team_members: project.teamMembers,
+      table_number: project.tableNumber,
     })
     setIsEditDialogOpen(true)
   }
@@ -105,8 +188,8 @@ export default function ProjectsTab() {
     setFormData({
       name: "",
       description: "",
-      teamMembers: "",
-      tableNumber: 0,
+      team_members: "",
+      table_number: 0,
     })
     setCurrentProject(null)
   }
@@ -124,43 +207,55 @@ export default function ProjectsTab() {
         </Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead>Table #</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="font-medium">{project.name}</TableCell>
-                <TableCell>{project.teamMembers}</TableCell>
-                <TableCell>{project.tableNumber}</TableCell>
-                <TableCell>
-                  {project.isFinalist ? (
-                    <Badge variant="default">Finalist</Badge>
-                  ) : (
-                    <Badge variant="outline">Regular</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(project)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(project)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
+        {loading ? (
+          <div className="py-8 text-center">Loading projects...</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead>Table #</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {projects.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4">
+                    No projects found. Add one to get started.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                projects.map((project) => (
+                  <TableRow key={project.id}>
+                    <TableCell className="font-medium">{project.name}</TableCell>
+                    <TableCell>{project.teamMembers}</TableCell>
+                    <TableCell>{project.tableNumber}</TableCell>
+                    <TableCell>
+                      {project.isFinalist ? (
+                        <Badge variant="default">Finalist</Badge>
+                      ) : (
+                        <Badge variant="outline">Regular</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(project)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(project)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
 
       {/* Add Project Dialog */}
@@ -188,20 +283,23 @@ export default function ProjectsTab() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="team">Team Members</Label>
+              <Label htmlFor="team-members">Team Members</Label>
               <Input
-                id="team"
-                value={formData.teamMembers}
-                onChange={(e) => setFormData({ ...formData, teamMembers: e.target.value })}
+                id="team-members"
+                value={formData.team_members}
+                onChange={(e) => setFormData({ ...formData, team_members: e.target.value })}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="table">Table Number</Label>
+              <Label htmlFor="table-number">Table Number</Label>
               <Input
-                id="table"
+                id="table-number"
                 type="number"
-                value={formData.tableNumber.toString()}
-                onChange={(e) => setFormData({ ...formData, tableNumber: Number.parseInt(e.target.value) || 0 })}
+                min="1"
+                value={formData.table_number.toString()}
+                onChange={(e) =>
+                  setFormData({ ...formData, table_number: parseInt(e.target.value) || 0 })
+                }
               />
             </div>
           </div>
@@ -239,20 +337,23 @@ export default function ProjectsTab() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-team">Team Members</Label>
+              <Label htmlFor="edit-team-members">Team Members</Label>
               <Input
-                id="edit-team"
-                value={formData.teamMembers}
-                onChange={(e) => setFormData({ ...formData, teamMembers: e.target.value })}
+                id="edit-team-members"
+                value={formData.team_members}
+                onChange={(e) => setFormData({ ...formData, team_members: e.target.value })}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-table">Table Number</Label>
+              <Label htmlFor="edit-table-number">Table Number</Label>
               <Input
-                id="edit-table"
+                id="edit-table-number"
                 type="number"
-                value={formData.tableNumber.toString()}
-                onChange={(e) => setFormData({ ...formData, tableNumber: Number.parseInt(e.target.value) || 0 })}
+                min="1"
+                value={formData.table_number.toString()}
+                onChange={(e) =>
+                  setFormData({ ...formData, table_number: parseInt(e.target.value) || 0 })
+                }
               />
             </div>
           </div>
@@ -260,7 +361,7 @@ export default function ProjectsTab() {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditProject}>Save Changes</Button>
+            <Button onClick={handleEditProject}>Update Project</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

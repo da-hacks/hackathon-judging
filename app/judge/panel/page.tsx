@@ -11,7 +11,29 @@ import { Textarea } from "@/components/ui/textarea"
 import { LogOut } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AuthGuard } from "@/components/auth-guard"
-import { getProjects, addRubricScore, getRubricScoresByJudge, type Project, type RubricScore } from "@/lib/data"
+import { getProjects } from "@/lib/db-client"
+
+// Type definitions
+export type Project = {
+  id: number;
+  name: string;
+  description: string;
+  teamMembers: string;
+  tableNumber: number;
+  isFinalist: boolean;
+}
+
+export type RubricScore = {
+  id: number;
+  judgeId: string;
+  projectId: string;
+  originality: number;
+  technicalComplexity: number;
+  impact: number;
+  learningCollaboration: number;
+  comments: string;
+  timestamp: number;
+}
 
 export default function JudgePanel() {
   const [judgeId, setJudgeId] = useState<string | null>(null)
@@ -32,26 +54,43 @@ export default function JudgePanel() {
   const { toast } = useToast()
 
   useEffect(() => {
-    // Get judge info from localStorage
-    const id = localStorage.getItem("judgeId")
-    const name = localStorage.getItem("judgeName")
+    const fetchData = async () => {
+      try {
+        // Get judge info from localStorage
+        const id = localStorage.getItem("judgeId")
+        const name = localStorage.getItem("judgeName")
 
-    if (id) {
-      setJudgeId(id)
-      setJudgeName(name)
+        if (id) {
+          setJudgeId(id)
+          setJudgeName(name)
 
-      // Get finalist projects
-      const allProjects = getProjects()
-      const finalistProjects = allProjects.filter((p) => p.isFinalist)
-      setFinalists(finalistProjects)
+          // Get all projects from API
+          const allProjects = await getProjects()
+          // Filter finalist projects
+          const finalistProjects = allProjects.filter((p) => p.isFinalist)
+          setFinalists(finalistProjects)
 
-      // Get already completed scores
-      const scores = getRubricScoresByJudge(id)
-      setCompletedScores(scores)
+          // Get already completed scores
+          const response = await fetch(`/api/db/get-judge-scores?judgeId=${id}`)
+          if (response.ok) {
+            const data = await response.json()
+            setCompletedScores(data.scores || [])
+          }
+        }
+      } catch (error) {
+        console.error("Error loading data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load project data. Please try again.",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
     }
 
-    setLoading(false)
-  }, [])
+    fetchData()
+  }, [toast])
 
   const handleLogout = () => {
     localStorage.removeItem("isLoggedIn")
@@ -67,42 +106,65 @@ export default function JudgePanel() {
     router.push("/")
   }
 
-  const handleSubmitScore = (projectId: string) => {
+  const handleSubmitScore = async (projectId: string) => {
     if (!judgeId) return
 
-    // Record the rubric score
-    addRubricScore({
-      judgeId,
-      projectId,
-      originality: formData.originality,
-      technicalComplexity: formData.technicalComplexity,
-      impact: formData.impact,
-      learningCollaboration: formData.learningCollaboration,
-      comments: formData.comments,
-    })
+    try {
+      // Submit score via API
+      const response = await fetch("/api/db/add-rubric-score", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          judge_id: judgeId,
+          project_id: projectId,
+          originality: formData.originality,
+          technical_complexity: formData.technicalComplexity,
+          impact: formData.impact,
+          learning_collaboration: formData.learningCollaboration,
+          comments: formData.comments,
+          timestamp: Date.now(),
+        }),
+      })
 
-    // Update completed scores
-    const scores = getRubricScoresByJudge(judgeId)
-    setCompletedScores(scores)
+      if (!response.ok) {
+        throw new Error("Failed to submit score")
+      }
 
-    // Reset form
-    setFormData({
-      originality: 5,
-      technicalComplexity: 5,
-      impact: 5,
-      learningCollaboration: 5,
-      comments: "",
-    })
+      // Update completed scores
+      const scoresResponse = await fetch(`/api/db/get-judge-scores?judgeId=${judgeId}`)
+      if (scoresResponse.ok) {
+        const data = await scoresResponse.json()
+        setCompletedScores(data.scores || [])
+      }
 
-    toast({
-      title: "Score submitted",
-      description: "Your evaluation has been saved",
-    })
+      // Reset form
+      setFormData({
+        originality: 5,
+        technicalComplexity: 5,
+        impact: 5,
+        learningCollaboration: 5,
+        comments: "",
+      })
 
-    // Move to next tab if available
-    const currentIndex = Number.parseInt(activeTab)
-    if (currentIndex < finalists.length - 1) {
-      setActiveTab((currentIndex + 1).toString())
+      toast({
+        title: "Score submitted",
+        description: "Your evaluation has been saved",
+      })
+
+      // Move to next tab if available
+      const currentIndex = Number.parseInt(activeTab)
+      if (currentIndex < finalists.length - 1) {
+        setActiveTab((currentIndex + 1).toString())
+      }
+    } catch (error) {
+      console.error("Error submitting score:", error)
+      toast({
+        title: "Error",
+        description: "Failed to submit score. Please try again.",
+        variant: "destructive"
+      })
     }
   }
 
@@ -159,7 +221,7 @@ export default function JudgePanel() {
                     {finalists.map((project, index) => (
                       <TabsTrigger key={project.id} value={index.toString()}>
                         {project.name}
-                        {isProjectScored(project.id) && " ✓"}
+                        {isProjectScored(project.id.toString()) && " ✓"}
                       </TabsTrigger>
                     ))}
                   </TabsList>
@@ -176,7 +238,7 @@ export default function JudgePanel() {
 
                         <Separator />
 
-                        {isProjectScored(project.id) ? (
+                        {isProjectScored(project.id.toString()) ? (
                           <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                             <p className="text-green-600 dark:text-green-400 font-medium">
                               You have already evaluated this project.
@@ -266,7 +328,7 @@ export default function JudgePanel() {
                               />
                             </div>
 
-                            <Button className="w-full" onClick={() => handleSubmitScore(project.id)}>
+                            <Button className="w-full" onClick={() => handleSubmitScore(project.id.toString())}>
                               Submit Evaluation
                             </Button>
                           </div>

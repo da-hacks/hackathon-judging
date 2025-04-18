@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -16,10 +16,18 @@ import {
 } from "@/components/ui/dialog"
 import { Plus, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getJudges, addJudge, deleteJudge, type Judge } from "@/lib/data"
+import { getJudges, addJudge, deleteJudge } from "@/lib/db-client"
+
+// Judge type definition
+export type Judge = {
+  id: number;
+  name: string;
+  email: string;
+}
 
 export default function JudgesTab() {
-  const [judges, setJudges] = useState<Judge[]>(getJudges())
+  const [judges, setJudges] = useState<Judge[]>([])
+  const [loading, setLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [currentJudge, setCurrentJudge] = useState<Judge | null>(null)
@@ -29,33 +37,79 @@ export default function JudgesTab() {
   })
   const { toast } = useToast()
 
-  const handleAddJudge = () => {
-    const newJudge = addJudge({
-      name: formData.name,
-      email: formData.email,
-    })
+  // Fetch judges on component mount
+  useEffect(() => {
+    const fetchJudges = async () => {
+      try {
+        const judgesList = await getJudges()
+        setJudges(judgesList)
+      } catch (error) {
+        console.error("Failed to fetch judges:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load judges. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchJudges()
+  }, [toast])
 
-    setJudges(getJudges())
-    setIsAddDialogOpen(false)
-    resetForm()
+  const handleAddJudge = async () => {
+    try {
+      const newJudge = await addJudge({
+        name: formData.name,
+        email: formData.email,
+      })
 
-    toast({
-      title: "Judge added",
-      description: `${newJudge.name} has been added successfully`,
-    })
+      // Refresh judges list
+      const updatedJudges = await getJudges()
+      setJudges(updatedJudges)
+      
+      setIsAddDialogOpen(false)
+      resetForm()
+
+      toast({
+        title: "Judge added",
+        description: `${formData.name} has been added successfully`,
+      })
+    } catch (error) {
+      console.error("Failed to add judge:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add judge. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleDeleteJudge = () => {
+  const handleDeleteJudge = async () => {
     if (!currentJudge) return
 
-    deleteJudge(currentJudge.id)
-    setJudges(getJudges())
-    setIsDeleteDialogOpen(false)
+    try {
+      await deleteJudge(currentJudge.id)
+      
+      // Refresh judges list
+      const updatedJudges = await getJudges()
+      setJudges(updatedJudges)
+      
+      setIsDeleteDialogOpen(false)
 
-    toast({
-      title: "Judge deleted",
-      description: `${currentJudge.name} has been deleted successfully`,
-    })
+      toast({
+        title: "Judge deleted",
+        description: `${currentJudge.name} has been deleted successfully`,
+      })
+    } catch (error) {
+      console.error("Failed to delete judge:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete judge. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const openDeleteDialog = (judge: Judge) => {
@@ -84,28 +138,38 @@ export default function JudgesTab() {
         </Button>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {judges.map((judge) => (
-              <TableRow key={judge.id}>
-                <TableCell className="font-medium">{judge.name}</TableCell>
-                <TableCell>{judge.email}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(judge)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TableCell>
+        {loading ? (
+          <div className="text-center py-4">Loading judges...</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {judges.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center">No judges found</TableCell>
+                </TableRow>
+              ) : (
+                judges.map((judge) => (
+                  <TableRow key={judge.id}>
+                    <TableCell className="font-medium">{judge.name}</TableCell>
+                    <TableCell>{judge.email}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => openDeleteDialog(judge)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
 
       {/* Add Judge Dialog */}

@@ -29,20 +29,40 @@ A web application for hackathon judging using the pairwise comparison methodolog
 - Built with Next.js (TypeScript) and Tailwind CSS
 - Uses shadcn/ui components for a clean, modern UI
 - Mobile-friendly design for judges walking around the expo
-- In-memory data storage (can be extended to persistent storage)
+- **Neon Database Integration** for persistent PostgreSQL storage
+- Uses @neondatabase/serverless for direct SQL queries
 
 ## Setup Instructions
 
 1. Clone the repository
 2. Install dependencies:
-   \`\`\`
-   npm install
-   \`\`\`
-3. Run the development server:
-   \`\`\`
-   npm run dev
-   \`\`\`
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+   ```
+   pnpm install
+   ```
+3. Create a `.env.local` file with your Neon database connection details:
+   ```
+   POSTGRES_PRISMA_URL=postgres://username:password@hostname/database?connect_timeout=15&sslmode=require
+   ```
+4. Initialize the database:
+   ```
+   pnpm init-db
+   ```
+5. Run the development server:
+   ```
+   pnpm dev
+   ```
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Database Setup
+
+The application uses Neon's serverless PostgreSQL database. To set up:
+
+1. Create an account at [Neon](https://neon.tech)
+2. Create a new project and database
+3. Copy the connection string to your `.env.local` file
+4. Run the initialization script to create tables and seed initial data
+
+For more details on the database implementation, see [NEON_DATABASE.md](./NEON_DATABASE.md).
 
 ## Login Credentials
 
@@ -58,6 +78,9 @@ A web application for hackathon judging using the pairwise comparison methodolog
 - `app/`: Next.js App Router pages
 - `components/`: UI components
 - `lib/`: Data models and utility functions
+- `lib/db.ts`: Database connection setup
+- `lib/db-models.ts`: Database model functions
+- `lib/data.ts`: Data access layer (now uses database)
 
 ## Data Models
 
@@ -73,7 +96,6 @@ A web application for hackathon judging using the pairwise comparison methodolog
 
 ## Future Enhancements
 
-- Persistent storage with a database
 - Authentication with JWT or NextAuth
 - Export results to CSV/Excel
 - Real-time updates with WebSockets

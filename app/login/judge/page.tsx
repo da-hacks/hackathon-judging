@@ -2,25 +2,55 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { getJudges } from "@/lib/data"
+import { getJudges } from "@/lib/db-client"
 
 export default function JudgeLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [judges, setJudges] = useState([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
+
+  // Fetch judges on component mount
+  useEffect(() => {
+    const fetchJudges = async () => {
+      try {
+        const judgesList = await getJudges()
+        setJudges(judgesList)
+      } catch (error) {
+        console.error("Failed to fetch judges:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load judge data. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchJudges()
+  }, [toast])
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const judges = getJudges()
+    if (loading) {
+      toast({
+        title: "Loading",
+        description: "Please wait while judge data is being loaded",
+      })
+      return
+    }
+
     const judge = judges.find((j) => j.email === email)
 
     // For demo purposes, using a simple password check
@@ -88,7 +118,9 @@ export default function JudgeLogin() {
             <Button variant="outline" onClick={() => router.push("/")}>
               Back
             </Button>
-            <Button type="submit">Login</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Loading..." : "Login"}
+            </Button>
           </CardFooter>
         </form>
       </Card>

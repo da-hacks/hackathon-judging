@@ -1,244 +1,260 @@
 // Types
+import * as db from './db-models';
+import { getProjects as fetchProjects, getRubricScores as fetchRubricScores } from './db-client';
+
 export interface Project {
-  id: string
-  name: string
-  description: string
-  teamMembers: string
-  tableNumber: number
-  isFinalist?: boolean
+  id: string;
+  name: string;
+  description: string;
+  teamMembers: string;
+  tableNumber: number;
+  isFinalist?: boolean;
 }
 
 export interface Judge {
-  id: string
-  name: string
-  email: string
+  id: string;
+  name: string;
+  email: string;
 }
 
 export interface Comparison {
-  id: string
-  judgeId: string
-  projectAId: string
-  projectBId: string
-  winnerId: string | null
-  timestamp: number
+  id: string;
+  judgeId: string;
+  projectAId: string;
+  projectBId: string;
+  winnerId: string | null;
+  timestamp: number;
 }
 
 export interface RubricScore {
-  id: string
-  judgeId: string
-  projectId: string
-  originality: number
-  technicalComplexity: number
-  impact: number
-  learningCollaboration: number
-  comments: string
-  timestamp: number
+  id: string;
+  judgeId: string;
+  projectId: string;
+  originality: number;
+  technicalComplexity: number;
+  impact: number;
+  learningCollaboration: number;
+  comments: string;
+  timestamp: number;
 }
 
-// In-memory data store
-let projects: Project[] = [
-  {
-    id: "p1",
-    name: "Smart Health Monitor",
-    description: "A wearable device that monitors vital signs and alerts users of potential health issues.",
-    teamMembers: "Alice, Bob, Charlie",
-    tableNumber: 1,
-  },
-  {
-    id: "p2",
-    name: "EcoTrack",
-    description: "An app that helps users reduce their carbon footprint by tracking daily activities.",
-    teamMembers: "David, Emma, Frank",
-    tableNumber: 2,
-  },
-  {
-    id: "p3",
-    name: "StudyBuddy",
-    description: "An AI-powered study assistant that helps students prepare for exams.",
-    teamMembers: "Grace, Henry, Ivy",
-    tableNumber: 3,
-  },
-  {
-    id: "p4",
-    name: "FoodShare",
-    description: "A platform connecting restaurants with excess food to homeless shelters.",
-    teamMembers: "Jack, Kate, Liam",
-    tableNumber: 4,
-  },
-  {
-    id: "p5",
-    name: "VirtualTour",
-    description: "A VR application that allows users to explore museums and historical sites remotely.",
-    teamMembers: "Mike, Nina, Oscar",
-    tableNumber: 5,
-  },
-]
+// Conversion functions for database models to application models
+function dbProjectToProject(dbProject: db.DbProject): Project {
+  return {
+    id: dbProject.id.toString(),
+    name: dbProject.name,
+    description: dbProject.description,
+    teamMembers: dbProject.team_members,
+    tableNumber: dbProject.table_number,
+    isFinalist: dbProject.is_finalist,
+  };
+}
 
-let judges: Judge[] = [
-  {
-    id: "j1",
-    name: "Dr. Smith",
-    email: "smith@example.com",
-  },
-  {
-    id: "j2",
-    name: "Prof. Johnson",
-    email: "johnson@example.com",
-  },
-  {
-    id: "j3",
-    name: "Ms. Williams",
-    email: "williams@example.com",
-  },
-]
+function dbJudgeToJudge(dbJudge: db.DbJudge): Judge {
+  return {
+    id: dbJudge.id.toString(),
+    name: dbJudge.name,
+    email: dbJudge.email,
+  };
+}
 
-const comparisons: Comparison[] = []
-const rubricScores: RubricScore[] = []
+function dbComparisonToComparison(dbComparison: db.DbComparison): Comparison {
+  return {
+    id: dbComparison.id.toString(),
+    judgeId: dbComparison.judge_id.toString(),
+    projectAId: dbComparison.project_a_id.toString(),
+    projectBId: dbComparison.project_b_id.toString(),
+    winnerId: dbComparison.winner_id ? dbComparison.winner_id.toString() : null,
+    timestamp: dbComparison.timestamp,
+  };
+}
+
+function dbRubricScoreToRubricScore(dbScore: db.DbRubricScore): RubricScore {
+  return {
+    id: dbScore.id.toString(),
+    judgeId: dbScore.judge_id.toString(),
+    projectId: dbScore.project_id.toString(),
+    originality: dbScore.originality,
+    technicalComplexity: dbScore.technical_complexity,
+    impact: dbScore.impact,
+    learningCollaboration: dbScore.learning_collaboration,
+    comments: dbScore.comments,
+    timestamp: dbScore.timestamp,
+  };
+}
 
 // Helper functions
-export function getProjects(): Project[] {
-  return [...projects]
-}
-
-export function getProject(id: string): Project | undefined {
-  return projects.find((p) => p.id === id)
-}
-
-export function addProject(project: Omit<Project, "id">): Project {
-  const newProject: Project = {
-    ...project,
-    id: `p${projects.length + 1}`,
+export async function getProjects(): Promise<Project[]> {
+  try {
+    const projects = await fetchProjects();
+    return projects.map((project: any) => ({
+      id: project.id.toString(),
+      name: project.name,
+      description: project.description,
+      teamMembers: project.team_members,
+      tableNumber: project.table_number,
+      isFinalist: project.is_finalist,
+    }));
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    return [];
   }
-  projects.push(newProject)
-  return newProject
 }
 
-export function updateProject(id: string, updates: Partial<Project>): Project | null {
-  const index = projects.findIndex((p) => p.id === id)
-  if (index === -1) return null
-
-  projects[index] = { ...projects[index], ...updates }
-  return projects[index]
+export async function getProject(id: string): Promise<Project | undefined> {
+  const dbProject = await db.getProjectById(parseInt(id));
+  return dbProject ? dbProjectToProject(dbProject) : undefined;
 }
 
-export function deleteProject(id: string): boolean {
-  const initialLength = projects.length
-  projects = projects.filter((p) => p.id !== id)
-  return projects.length < initialLength
+export async function addProject(project: Omit<Project, "id">): Promise<Project> {
+  const dbProject = await db.createProject({
+    name: project.name,
+    description: project.description,
+    team_members: project.teamMembers,
+    table_number: project.tableNumber,
+    is_finalist: !!project.isFinalist,
+  });
+  return dbProjectToProject(dbProject);
 }
 
-export function getJudges(): Judge[] {
-  return [...judges]
+export async function updateProject(id: string, updates: Partial<Project>): Promise<Project | null> {
+  const dbUpdates: Partial<db.DbProject> = {};
+  
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.teamMembers !== undefined) dbUpdates.team_members = updates.teamMembers;
+  if (updates.tableNumber !== undefined) dbUpdates.table_number = updates.tableNumber;
+  if (updates.isFinalist !== undefined) dbUpdates.is_finalist = updates.isFinalist;
+  
+  const updatedProject = await db.updateProject(parseInt(id), dbUpdates);
+  return updatedProject ? dbProjectToProject(updatedProject) : null;
 }
 
-export function getJudge(id: string): Judge | undefined {
-  return judges.find((j) => j.id === id)
+export async function deleteProject(id: string): Promise<boolean> {
+  return db.deleteProject(parseInt(id));
 }
 
-export function addJudge(judge: Omit<Judge, "id">): Judge {
-  const newJudge: Judge = {
-    ...judge,
-    id: `j${judges.length + 1}`,
-  }
-  judges.push(newJudge)
-  return newJudge
+export async function getJudges(): Promise<Judge[]> {
+  const dbJudges = await db.getAllJudges();
+  return dbJudges.map(dbJudgeToJudge);
 }
 
-export function deleteJudge(id: string): boolean {
-  const initialLength = judges.length
-  judges = judges.filter((j) => j.id !== id)
-  return judges.length < initialLength
+export async function getJudge(id: string): Promise<Judge | undefined> {
+  const dbJudge = await db.getJudgeById(parseInt(id));
+  return dbJudge ? dbJudgeToJudge(dbJudge) : undefined;
 }
 
-export function addComparison(comparison: Omit<Comparison, "id" | "timestamp">): Comparison {
-  const newComparison: Comparison = {
-    ...comparison,
-    id: `c${comparisons.length + 1}`,
+export async function addJudge(judge: Omit<Judge, "id">): Promise<Judge> {
+  const dbJudge = await db.createJudge({
+    name: judge.name,
+    email: judge.email,
+  });
+  return dbJudgeToJudge(dbJudge);
+}
+
+export async function deleteJudge(id: string): Promise<boolean> {
+  return db.deleteJudge(parseInt(id));
+}
+
+export async function addComparison(comparison: Omit<Comparison, "id" | "timestamp">): Promise<Comparison> {
+  const dbComparison = await db.createComparison({
+    judge_id: parseInt(comparison.judgeId),
+    project_a_id: parseInt(comparison.projectAId),
+    project_b_id: parseInt(comparison.projectBId),
+    winner_id: comparison.winnerId ? parseInt(comparison.winnerId) : null,
     timestamp: Date.now(),
-  }
-  comparisons.push(newComparison)
-  return newComparison
+  });
+  return dbComparisonToComparison(dbComparison);
 }
 
-export function getComparisons(): Comparison[] {
-  return [...comparisons]
+export async function getComparisons(): Promise<Comparison[]> {
+  const dbComparisons = await db.getAllComparisons();
+  return dbComparisons.map(dbComparisonToComparison);
 }
 
-export function getComparisonsByJudge(judgeId: string): Comparison[] {
-  return comparisons.filter((c) => c.judgeId === judgeId)
+export async function getComparisonsByJudge(judgeId: string): Promise<Comparison[]> {
+  const dbComparisons = await db.getComparisonsByJudge(parseInt(judgeId));
+  return dbComparisons.map(dbComparisonToComparison);
 }
 
-export function addRubricScore(score: Omit<RubricScore, "id" | "timestamp">): RubricScore {
-  const newScore: RubricScore = {
-    ...score,
-    id: `r${rubricScores.length + 1}`,
+export async function addRubricScore(score: Omit<RubricScore, "id" | "timestamp">): Promise<RubricScore> {
+  const dbScore = await db.createRubricScore({
+    judge_id: parseInt(score.judgeId),
+    project_id: parseInt(score.projectId),
+    originality: score.originality,
+    technical_complexity: score.technicalComplexity,
+    impact: score.impact,
+    learning_collaboration: score.learningCollaboration,
+    comments: score.comments,
     timestamp: Date.now(),
-  }
-  rubricScores.push(newScore)
-  return newScore
+  });
+  return dbRubricScoreToRubricScore(dbScore);
 }
 
-export function getRubricScores(): RubricScore[] {
-  return [...rubricScores]
+export async function getRubricScores(): Promise<RubricScore[]> {
+  const dbScores = await db.getAllRubricScores();
+  return dbScores.map(dbRubricScoreToRubricScore);
 }
 
-export function getRubricScoresByJudge(judgeId: string): RubricScore[] {
-  return rubricScores.filter((s) => s.judgeId === judgeId)
+export async function getRubricScoresByJudge(judgeId: string): Promise<RubricScore[]> {
+  const dbScores = await db.getRubricScoresByJudge(parseInt(judgeId));
+  return dbScores.map(dbRubricScoreToRubricScore);
 }
 
-export function getRubricScoresByProject(projectId: string): RubricScore[] {
-  return rubricScores.filter((s) => s.projectId === projectId)
+export async function getRubricScoresByProject(projectId: string): Promise<RubricScore[]> {
+  const dbScores = await db.getRubricScoresByProject(parseInt(projectId));
+  return dbScores.map(dbRubricScoreToRubricScore);
 }
 
 // Pairwise comparison algorithm
-export function getNextPairForJudge(judgeId: string): { projectA: Project; projectB: Project } | null {
-  const judgeComparisons = getComparisonsByJudge(judgeId)
-  const allProjects = getProjects()
+export async function getNextPairForJudge(judgeId: string): Promise<{ projectA: Project; projectB: Project } | null> {
+  const judgeComparisons = await getComparisonsByJudge(judgeId);
+  const allProjects = await getProjects();
 
   // If there are less than 2 projects, we can't make a pair
-  if (allProjects.length < 2) return null
+  if (allProjects.length < 2) return null;
 
   // Create a map of how many times each project has been seen by this judge
-  const projectSeenCount = new Map<string, number>()
-  allProjects.forEach((p) => projectSeenCount.set(p.id, 0))
+  const projectSeenCount = new Map<string, number>();
+  allProjects.forEach((p) => projectSeenCount.set(p.id, 0));
 
   judgeComparisons.forEach((c) => {
-    const projectACount = projectSeenCount.get(c.projectAId) || 0
-    projectSeenCount.set(c.projectAId, projectACount + 1)
+    const projectACount = projectSeenCount.get(c.projectAId) || 0;
+    projectSeenCount.set(c.projectAId, projectACount + 1);
 
-    const projectBCount = projectSeenCount.get(c.projectBId) || 0
-    projectSeenCount.set(c.projectBId, projectBCount + 1)
-  })
+    const projectBCount = projectSeenCount.get(c.projectBId) || 0;
+    projectSeenCount.set(c.projectBId, projectBCount + 1);
+  });
 
   // Sort projects by how many times they've been seen (least to most)
   const sortedProjects = [...allProjects].sort((a, b) => {
-    return (projectSeenCount.get(a.id) || 0) - (projectSeenCount.get(b.id) || 0)
-  })
+    return (projectSeenCount.get(a.id) || 0) - (projectSeenCount.get(b.id) || 0);
+  });
 
   // Get the two least seen projects
-  const projectA = sortedProjects[0]
-  const projectB = sortedProjects[1]
+  const projectA = sortedProjects[0];
+  const projectB = sortedProjects[1];
 
   // Check if this exact pair has been compared before
   const pairExists = judgeComparisons.some(
     (c) =>
       (c.projectAId === projectA.id && c.projectBId === projectB.id) ||
       (c.projectAId === projectB.id && c.projectBId === projectA.id),
-  )
+  );
 
   // If this pair has been compared, try to find another pair
   if (pairExists && sortedProjects.length > 2) {
-    const projectC = sortedProjects[2]
+    const projectC = sortedProjects[2];
 
     // Check if A-C pair exists
     const pairACExists = judgeComparisons.some(
       (c) =>
         (c.projectAId === projectA.id && c.projectBId === projectC.id) ||
         (c.projectAId === projectC.id && c.projectBId === projectA.id),
-    )
+    );
 
     if (!pairACExists) {
-      return { projectA, projectB: projectC }
+      return { projectA, projectB: projectC };
     }
 
     // Check if B-C pair exists
@@ -246,147 +262,160 @@ export function getNextPairForJudge(judgeId: string): { projectA: Project; proje
       (c) =>
         (c.projectAId === projectB.id && c.projectBId === projectC.id) ||
         (c.projectAId === projectC.id && c.projectBId === projectB.id),
-    )
+    );
 
     if (!pairBCExists) {
-      return { projectA: projectB, projectB: projectC }
+      return { projectA: projectB, projectB: projectC };
     }
   }
 
-  return { projectA, projectB }
+  // If we can't find a new pair, return the original pair even if it has been compared before
+  return { projectA, projectB };
 }
 
-// Calculate project rankings based on pairwise comparisons
-export function calculateRankings(): { project: Project; score: number }[] {
-  const allProjects = getProjects()
-  const projectWins = new Map<string, number>()
-  const projectAppearances = new Map<string, number>()
-
-  // Initialize maps
-  allProjects.forEach((p) => {
-    projectWins.set(p.id, 0)
-    projectAppearances.set(p.id, 0)
-  })
-
+// Rankings calculation
+export async function calculateRankings(): Promise<{ project: Project; score: number }[]> {
+  const projects = await getProjects();
+  const comparisons = await getComparisons();
+  
+  // Initialize wins and appearances count
+  const wins = new Map<string, number>();
+  const appearances = new Map<string, number>();
+  
+  projects.forEach(p => {
+    wins.set(p.id, 0);
+    appearances.set(p.id, 0);
+  });
+  
   // Count wins and appearances
-  comparisons.forEach((c) => {
+  comparisons.forEach(c => {
     if (c.winnerId) {
-      const wins = projectWins.get(c.winnerId) || 0
-      projectWins.set(c.winnerId, wins + 1)
+      const winCount = wins.get(c.winnerId) || 0;
+      wins.set(c.winnerId, winCount + 1);
     }
-
-    const appearancesA = projectAppearances.get(c.projectAId) || 0
-    projectAppearances.set(c.projectAId, appearancesA + 1)
-
-    const appearancesB = projectAppearances.get(c.projectBId) || 0
-    projectAppearances.set(c.projectBId, appearancesB + 1)
-  })
-
-  // Calculate win rate for each project
-  const rankings = allProjects.map((project) => {
-    const wins = projectWins.get(project.id) || 0
-    const appearances = projectAppearances.get(project.id) || 0
-    const score = appearances > 0 ? wins / appearances : 0
-
-    return { project, score }
-  })
-
-  // Sort by score (descending)
-  return rankings.sort((a, b) => b.score - a.score)
+    
+    const projectACount = appearances.get(c.projectAId) || 0;
+    appearances.set(c.projectAId, projectACount + 1);
+    
+    const projectBCount = appearances.get(c.projectBId) || 0;
+    appearances.set(c.projectBId, projectBCount + 1);
+  });
+  
+  // Calculate win rate
+  const rankings = projects.map(project => {
+    const projectWins = wins.get(project.id) || 0;
+    const projectAppearances = appearances.get(project.id) || 0;
+    
+    // Win rate calculation, handle division by zero
+    const winRate = projectAppearances === 0 ? 0 : projectWins / projectAppearances;
+    
+    return {
+      project,
+      score: winRate
+    };
+  });
+  
+  // Sort by win rate in descending order
+  return rankings.sort((a, b) => b.score - a.score);
 }
 
 // Set finalists based on rankings
-export function setFinalists(count = 5): Project[] {
-  const rankings = calculateRankings()
-  const finalists = rankings.slice(0, count).map((r) => r.project)
-
-  // Update projects to mark finalists
-  projects = projects.map((p) => {
-    const isFinalist = finalists.some((f) => f.id === p.id)
-    return { ...p, isFinalist }
-  })
-
-  return finalists
+export async function setFinalists(count = 5): Promise<Project[]> {
+  const rankings = await calculateRankings();
+  const finalistIds = rankings.slice(0, count).map(r => parseInt(r.project.id));
+  
+  const finalistProjects = await db.setProjectsAsFinalists(finalistIds);
+  return finalistProjects.map(dbProjectToProject);
 }
 
-// Calculate average rubric scores for a project
-export function calculateAverageRubricScores(projectId: string): {
-  originality: number
-  technicalComplexity: number
-  impact: number
-  learningCollaboration: number
-  overall: number
-} {
-  const scores = getRubricScoresByProject(projectId)
-
-  if (scores.length === 0) {
+// Add a client-side implementation of getAverageScoresForProject
+export async function calculateAverageRubricScores(projectId: string): Promise<{
+  originality: number;
+  technicalComplexity: number;
+  impact: number;
+  learningCollaboration: number;
+  overall: number;
+}> {
+  try {
+    return await fetchRubricScores(projectId);
+  } catch (error) {
+    console.error('Error fetching rubric scores:', error);
     return {
       originality: 0,
       technicalComplexity: 0,
       impact: 0,
       learningCollaboration: 0,
-      overall: 0,
+      overall: 0
+    };
+  }
+}
+
+// Initialize database tables and seed data if needed
+export async function initializeData() {
+  // Initialize database tables first
+  await db.initializeDatabase();
+  
+  // Check if there are any projects already
+  const existingProjects = await getProjects();
+  
+  // Only seed data if there are no projects
+  if (existingProjects.length === 0) {
+    // Seed projects
+    const projectsToSeed = [
+      {
+        name: "Smart Health Monitor",
+        description: "A wearable device that monitors vital signs and alerts users of potential health issues.",
+        teamMembers: "Alice, Bob, Charlie",
+        tableNumber: 1,
+      },
+      {
+        name: "EcoTrack",
+        description: "An app that helps users reduce their carbon footprint by tracking daily activities.",
+        teamMembers: "David, Emma, Frank",
+        tableNumber: 2,
+      },
+      {
+        name: "StudyBuddy",
+        description: "An AI-powered study assistant that helps students prepare for exams.",
+        teamMembers: "Grace, Henry, Ivy",
+        tableNumber: 3,
+      },
+      {
+        name: "FoodShare",
+        description: "A platform connecting restaurants with excess food to homeless shelters.",
+        teamMembers: "Jack, Kate, Liam",
+        tableNumber: 4,
+      },
+      {
+        name: "VirtualTour",
+        description: "A VR application that allows users to explore museums and historical sites remotely.",
+        teamMembers: "Mike, Nina, Oscar",
+        tableNumber: 5,
+      },
+    ];
+    
+    for (const project of projectsToSeed) {
+      await addProject(project);
+    }
+    
+    // Seed judges
+    const judgesToSeed = [
+      {
+        name: "Dr. Smith",
+        email: "smith@example.com",
+      },
+      {
+        name: "Prof. Johnson",
+        email: "johnson@example.com",
+      },
+      {
+        name: "Ms. Williams",
+        email: "williams@example.com",
+      },
+    ];
+    
+    for (const judge of judgesToSeed) {
+      await addJudge(judge);
     }
   }
-
-  const sum = scores.reduce(
-    (acc, score) => {
-      return {
-        originality: acc.originality + score.originality,
-        technicalComplexity: acc.technicalComplexity + score.technicalComplexity,
-        impact: acc.impact + score.impact,
-        learningCollaboration: acc.learningCollaboration + score.learningCollaboration,
-      }
-    },
-    {
-      originality: 0,
-      technicalComplexity: 0,
-      impact: 0,
-      learningCollaboration: 0,
-    },
-  )
-
-  const avg = {
-    originality: sum.originality / scores.length,
-    technicalComplexity: sum.technicalComplexity / scores.length,
-    impact: sum.impact / scores.length,
-    learningCollaboration: sum.learningCollaboration / scores.length,
-  }
-
-  const overall = (avg.originality + avg.technicalComplexity + avg.impact + avg.learningCollaboration) / 4
-
-  return {
-    ...avg,
-    overall,
-  }
 }
-
-// Initialize some data
-export function initializeData() {
-  // Add some initial comparisons for demo purposes
-  if (comparisons.length === 0) {
-    addComparison({
-      judgeId: "j1",
-      projectAId: "p1",
-      projectBId: "p2",
-      winnerId: "p1",
-    })
-
-    addComparison({
-      judgeId: "j1",
-      projectAId: "p3",
-      projectBId: "p4",
-      winnerId: "p3",
-    })
-
-    addComparison({
-      judgeId: "j2",
-      projectAId: "p1",
-      projectBId: "p3",
-      winnerId: "p3",
-    })
-  }
-}
-
-// Call initialize on module load
-initializeData()
