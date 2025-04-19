@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { initDb } from '@/lib/db-init'
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: 'Hackathon Judging',
   description: 'App for judging hackathon projects',
-  generator: 'v0.dev',
+  generator: 'javascript ',
 }
 
 // Initialize database on the server
@@ -30,7 +31,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <main>{children}</main>
+
+      <Toaster />
+
+      </body>
+      
     </html>
   )
 }

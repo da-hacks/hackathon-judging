@@ -329,26 +329,26 @@ export async function setFinalists(count = 5): Promise<Project[]> {
 }
 
 // Add a client-side implementation of getAverageScoresForProject
-export async function calculateAverageRubricScores(projectId: string): Promise<{
-  originality: number;
-  technicalComplexity: number;
-  impact: number;
-  learningCollaboration: number;
-  overall: number;
-}> {
-  try {
-    return await fetchRubricScores(projectId);
-  } catch (error) {
-    console.error('Error fetching rubric scores:', error);
-    return {
-      originality: 0,
-      technicalComplexity: 0,
-      impact: 0,
-      learningCollaboration: 0,
-      overall: 0
-    };
-  }
-}
+// export async function calculateAverageRubricScores(projectId: string): Promise<{
+//   originality: number;
+//   technicalComplexity: number;
+//   impact: number;
+//   learningCollaboration: number;
+//   overall: number;
+// }> {
+//   try {
+//     return await fetchRubricScores(projectId);
+//   } catch (error) {
+//     console.error('Error fetching rubric scores:', error);
+//     return {
+//       originality: 0,
+//       technicalComplexity: 0,
+//       impact: 0,
+//       learningCollaboration: 0,
+//       overall: 0
+//     };
+//   }
+// }
 
 // Initialize database tables and seed data if needed
 export async function initializeData() {

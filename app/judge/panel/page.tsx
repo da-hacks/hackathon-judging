@@ -12,28 +12,28 @@ import { LogOut } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AuthGuard } from "@/components/auth-guard"
 import { getProjects } from "@/lib/db-client"
-
+import {Project, RubricScore} from "@/lib/data"
 // Type definitions
-export type Project = {
-  id: number;
-  name: string;
-  description: string;
-  teamMembers: string;
-  tableNumber: number;
-  isFinalist: boolean;
-}
+// export type Project = {
+//   id: number;
+//   name: string;
+//   description: string;
+//   teamMembers: string;
+//   tableNumber: number;
+//   isFinalist: boolean;
+// }
 
-export type RubricScore = {
-  id: number;
-  judgeId: string;
-  projectId: string;
-  originality: number;
-  technicalComplexity: number;
-  impact: number;
-  learningCollaboration: number;
-  comments: string;
-  timestamp: number;
-}
+// export type RubricScore = {
+//   id: number;
+//   judgeId: string;
+//   projectId: string;
+//   originality: number;
+//   technicalComplexity: number;
+//   impact: number;
+//   learningCollaboration: number;
+//   comments: string;
+//   timestamp: number;
+// }
 
 export default function JudgePanel() {
   const [judgeId, setJudgeId] = useState<string | null>(null)
@@ -67,7 +67,7 @@ export default function JudgePanel() {
           // Get all projects from API
           const allProjects = await getProjects()
           // Filter finalist projects
-          const finalistProjects = allProjects.filter((p) => p.isFinalist)
+          const finalistProjects = allProjects.filter((p: any) => p.isFinalist)
           setFinalists(finalistProjects)
 
           // Get already completed scores

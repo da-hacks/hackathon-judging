@@ -10,11 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { getJudges } from "@/lib/db-client"
+import {Judge} from "@/lib/data"
+// Define the Judge type
 
 export default function JudgeLogin() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [judges, setJudges] = useState([])
+  const [judges, setJudges] = useState<Judge[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
@@ -51,14 +53,15 @@ export default function JudgeLogin() {
       return
     }
 
-    const judge = judges.find((j) => j.email === email)
+
+    const judge: Judge | undefined = judges.find((j) => j.email === email)
 
     // For demo purposes, using a simple password check
     if (judge && password === "judge123") {
       // Set judge session
       localStorage.setItem("userRole", "judge")
       localStorage.setItem("isLoggedIn", "true")
-      localStorage.setItem("judgeId", judge.id)
+      localStorage.setItem("judgeId", judge.id.toString()) // Ensure ID is stored as string
       localStorage.setItem("judgeName", judge.name)
 
       toast({

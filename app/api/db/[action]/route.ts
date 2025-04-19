@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: { action: string } }
 ) {
   try {
-    const action = await params.action;
+    const { action } = await params;
     const searchParams = request.nextUrl.searchParams;
     
     switch (action) {
@@ -234,7 +234,7 @@ export async function POST(
   { params }: { params: { action: string } }
 ) {
   try {
-    const action = await params.action;
+    const { action } = await params;
     const body = await request.json();
     
     switch (action) {

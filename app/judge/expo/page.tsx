@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import { LogOut } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { AuthGuard } from "@/components/auth-guard"
+import { Badge } from "@/components/ui/badge"
 
 export type Project = {
   id: number;
@@ -164,7 +165,12 @@ export default function JudgeExpo() {
             <div className="grid md:grid-cols-2 gap-6">
               <Card className="h-full">
                 <CardHeader>
-                  <CardTitle>{projectPair.projectA.name}</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    {projectPair.projectA.name}
+                    {projectPair.projectA.isFinalist && (
+                      <Badge variant="secondary">Finalist</Badge>
+                    )}
+                  </CardTitle>
                   <CardDescription>Table #{projectPair.projectA.tableNumber}</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -182,7 +188,12 @@ export default function JudgeExpo() {
 
               <Card className="h-full">
                 <CardHeader>
-                  <CardTitle>{projectPair.projectB.name}</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    {projectPair.projectB.name}
+                    {projectPair.projectB.isFinalist && (
+                      <Badge variant="secondary">Finalist</Badge>
+                    )}
+                  </CardTitle>
                   <CardDescription>Table #{projectPair.projectB.tableNumber}</CardDescription>
                 </CardHeader>
                 <CardContent>
