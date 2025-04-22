@@ -11,18 +11,18 @@ export const metadata: Metadata = {
 
 // Initialize database on the server
 // This will be executed only once during server startup
-async function initDatabase() {
-  try {
-    await initDb();
-  } catch (error) {
-    console.error('Failed to initialize database:', error);
-  }
-}
+// async function initDatabase() {
+//   try {
+//     await initDb();
+//   } catch (error) {
+//     console.error('Failed to initialize database:', error);
+//   }
+// }
 
-// Only run database initialization on the server
-if (typeof window === 'undefined') {
-  initDatabase().catch(console.error);
-}
+// // Only run database initialization on the server
+// if (typeof window === 'undefined') {
+//   initDatabase().catch(console.error);
+// }
 
 export default function RootLayout({
   children,
